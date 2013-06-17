@@ -33,11 +33,14 @@ exports.nodeunit = (function (){
     function _getMockPhantom() {
         return {
             handlers: [],
-            calledUrl: null,
+            calledUrls: [],
             calledOptions: null,
-            spawn: function spawn(url, options) {
-                this.calledUrl = url;
+            spawn: function spawn(url, options, onComplete) {
+                this.calledUrls.push(url);
                 this.calledOptions = options;
+                if (options && options.done) {
+                    options.done();
+                }
             },
             on: function on(handler) { 
                 this.handlers.push(handler)
@@ -57,7 +60,7 @@ exports.nodeunit = (function (){
         test.expect(5);
         test.ok(task, 'Task should exist.');
         test.ok(task.options, 'Options should exist.');
-        test.strictEqual(task.src, null, 'Src should be null.');
+        test.ok(!task.filesSrc, 'Src should be false-ish.');
         test.ok(task.options.phantomOptions, 'Phantom options should exist.');
         test.strictEqual(task.options.parameters, null, 'Page parameters should be null.');
         test.done();
@@ -99,9 +102,25 @@ exports.nodeunit = (function (){
 
         test.expect(3);
         task.run();
-        test.strictEqual(mockPhantom.calledUrl, 'test/test.html', 'Called URL should match what was passed in.');
+        test.strictEqual(mockPhantom.calledUrls[0], 'test/test.html', 'Called URL should match what was passed in.');
         test.ok(mockPhantom.calledOptions, 'Called options should be defined.');
         test.ok(mockPhantom.calledOptions.options.inject.length, 2, 'Inject should be defaulted to two scripts (html inspector and default bridge).');
+        test.done();
+    }
+
+    function runsMultipleFiles(test) {
+        var task,
+            mockPhantom = _getMockPhantom()
+
+        task = new HtmlInspector(
+            _getMockTask(['test/test.html', 'test/test2.html'], { }),
+            mockPhantom);
+
+        test.expect(3);
+        task.run();
+        test.strictEqual(mockPhantom.calledUrls.length, 2, 'Exactly two files should be processed.');
+        test.strictEqual(mockPhantom.calledUrls[0], 'test/test.html', 'Called URL #1 should be test.html.');
+        test.strictEqual(mockPhantom.calledUrls[1], 'test/test2.html', 'Called URL #2 should be test2.html.');
         test.done();
     }
     
@@ -110,6 +129,7 @@ exports.nodeunit = (function (){
         setsDefaults: setsDefaults,
         registersSelfWithGrunt: registersSelfWithGrunt,
         runRegistersPhantomHandlers: runRegistersPhantomHandlers,
-        runSetsDefaults: runSetsDefaults
+        runSetsDefaults: runSetsDefaults,
+        runsMultipleFiles: runsMultipleFiles
     };
 }());

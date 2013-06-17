@@ -6,7 +6,7 @@ var grunt = require('grunt'),
 
 var HtmlInspector = function HtmlInspector(task, phantomjs) {
     this.setOptions(task);
-    this.src = task.filesSrc ? task.filesSrc[0] : null;
+    this.filesSrc = task.filesSrc;
     this.async = task.async;
     this.phantomjs = phantomjs;
 };
@@ -63,8 +63,8 @@ _.extend(HtmlInspector.prototype, (function () {
             markTaskComplete = this.async(),
             inject = [];
             
-        if (!self.src) {
-            grunt.fatal('Path to test page was not specified, please use the "src" grunt parameter.');
+        if (!self.filesSrc) {
+            grunt.fatal('Path to test page(s) was not specified, please use the "src" grunt parameter.');
         }
 
         if (options.includeJquery) {
@@ -88,23 +88,27 @@ _.extend(HtmlInspector.prototype, (function () {
         
         phantomjs.on('htmlinspector.done', onComplete.bind(self));
         
-        phantomjs.spawn(self.src, (function () {
-        
-            function done(er) {
-                if (er) {
-                    grunt.log.writeln('error encountered');
-                    grunt.fatal(er.message);
-                }
+        grunt.util.async.forEachSeries(self.filesSrc, function spawnPhantomJs(url, next) {
+            grunt.log.writeln('Testing ' + url + ' ');
 
-                markTaskComplete(isPass);
-            }
+            phantomjs.spawn(url, (function defineOptions() {
         
-            return {
-                options: options.phantomOptions,
-                done: done
-            };
-        
-        }()));
+                function done(er) {
+                    if (er) {
+                        markTaskComplete(false);
+                    }
+                    else {
+                        next();
+                    }
+                }
+            
+                return {
+                    options: options.phantomOptions,
+                    done: done
+                };
+            
+            }()));
+        });
     }
 
     return {

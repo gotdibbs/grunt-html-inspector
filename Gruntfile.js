@@ -20,7 +20,7 @@ module.exports = function defineExports(grunt) {
                 includeJquery: true
             },
             all: {
-                src: ['./example/example.html']
+                src: ['./example/**/*.html']
             }
         }
     });
