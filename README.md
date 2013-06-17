@@ -42,7 +42,7 @@ grunt.initConfig({
 Type: `Array [string]`
 Default value: `null`
 
-A single-value array that represents the location of the page to be inspected.
+An array that represents the locations of the pages to be inspected.
 
 #### options.includeJquery
 Type: `Boolean`
@@ -54,7 +54,7 @@ A boolean value indicating whether or not to inject jquery on to the page to be 
 Type: `String`
 Default value: `null`
 
-A string value that represents a path to an override bridge for HTML Inspector and this task.
+A string value that represents a path to an override bridge for HTML Inspector and this task. Override the bridge to add/configure rules and change the way HTMLInspector is configured. (Goal is to pull as much of the config as possible into the Grunt config eventually.)
 
 #### options.parameters
 Type: `String`
