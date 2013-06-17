@@ -1,0 +1,28 @@
+{
+    "bitwise": true,
+    "curly": true,
+    "devel": true,
+    "eqeqeq": true,
+    "forin": true,
+    "immed": true,
+    "jquery": true,
+    "latedef": true,
+    "newcap": true,
+    "noarg": true,
+    "noempty": true,
+    "nonew": true,
+    "onevar": true,
+    "regexp": true,
+    "undef": true,
+    "quotmark": "single",
+    "globals": {
+        "window": true,
+        "document": true,
+        "define": true,
+        "module": true,
+        "test": true,
+        "strictEqual": true,
+        "ok": true,
+        "raises": true
+    }
+}
