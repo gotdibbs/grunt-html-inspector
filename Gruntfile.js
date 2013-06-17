@@ -10,6 +10,10 @@ module.exports = function defineExports(grunt) {
             all: ['tasks/*.js', 'tasks/includes/bridge.js', 'tasks/lib/**/*.js']
         },
 
+        nodeunit: {
+            all: ['test/*.js']
+        },
+
         // Example only
         'html-inspector': {
             options: {
@@ -22,9 +26,10 @@ module.exports = function defineExports(grunt) {
     });
 
     grunt.loadNpmTasks('grunt-contrib-jshint');
+    grunt.loadNpmTasks('grunt-contrib-nodeunit');
 
     // Example only
     grunt.loadTasks('./tasks/');
 
-    grunt.registerTask('default', ['jshint']);
+    grunt.registerTask('default', ['jshint', 'nodeunit']);
 };
