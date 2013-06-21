@@ -5,7 +5,6 @@ module.exports = function defineExports(grunt) {
         jshint: {
             options: {
                 jshintrc: '.jshintrc',
-                includeJquery: true,
             },
             all: ['tasks/*.js', 'tasks/includes/bridge.js', 'tasks/lib/**/*.js']
         },
@@ -16,9 +15,6 @@ module.exports = function defineExports(grunt) {
 
         // Example only
         'html-inspector': {
-            options: {
-                includeJquery: true
-            },
             all: {
                 src: ['./example/**/*.html']
             }

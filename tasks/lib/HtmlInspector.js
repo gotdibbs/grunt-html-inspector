@@ -62,13 +62,9 @@ _.extend(HtmlInspector.prototype, (function () {
             phantomjs = self.phantomjs,
             markTaskComplete = this.async(),
             inject = [];
-            
+
         if (!self.filesSrc) {
             grunt.fatal('Path to test page(s) was not specified, please use the "src" grunt parameter.');
-        }
-
-        if (options.includeJquery) {
-            inject.push(path.join(__dirname, '../includes', 'jquery.1.7.2.js'));
         }
 
         inject.push(path.join(__dirname, '../includes', 'html-inspector.js'));
@@ -87,6 +83,8 @@ _.extend(HtmlInspector.prototype, (function () {
         }
         
         phantomjs.on('htmlinspector.done', onComplete.bind(self));
+        phantomjs.on('fail.load', onFailLoad.bind(self));
+        phantomjs.on('fail.timeout', onFailTimeout.bind(self));
         
         grunt.util.async.forEachSeries(self.filesSrc, function spawnPhantomJs(url, next) {
             grunt.log.writeln('Testing ' + url + ' ');

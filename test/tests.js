@@ -87,7 +87,7 @@ exports.nodeunit = (function (){
 
         test.expect(2);
         task.run();
-        test.strictEqual(mockPhantom.handlers.length, 1, 'One handler should be registered.');
+        test.strictEqual(mockPhantom.handlers.length, 3, 'Three handlers should be registered.');
         test.notEqual(mockPhantom.handlers.indexOf('htmlinspector.done'), -1, 'qunit.done should be registered.');
         test.done();
     }

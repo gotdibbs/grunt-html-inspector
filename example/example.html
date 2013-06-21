@@ -6,7 +6,9 @@
     <body>
         <h1>Div without attributes</h1>
         <div>test</div>
-        <!-- PhantomJS expects at least one script tag in order for injectJs to work -->
+        <!-- PhantomJS requires at least one script tag in order for injectJs to work
+                as it injects files upon DOMContentLoaded which in small files like this
+                fires before it is able to be injected -->
         <script type="text/javascript">function noop() { }</script>
     </body>
 </html>

@@ -1,6 +1,6 @@
 # grunt-html-inspector
 
-> Phantomjs-based HTML Inspector implementation in Grunt. Runs @philipwalton's [HTML Inspector](https://github.com/philipwalton/html-inspector) against an HTML page.
+> Phantomjs-based HTML Inspector implementation in Grunt. Runs [HTML Inspector](https://github.com/philipwalton/html-inspector) by @philipwalton against an HTML page.
 
 ## Getting Started
 This plugin requires Grunt `~0.4.1`
@@ -26,7 +26,6 @@ In your project's Gruntfile, add a section named `html-inspector` to the data ob
 grunt.initConfig({
     'html-inspector': {
 		options: {
-			includeJquery: true, // required by html inspector, useful if you're not using jquery
             parameters: 'noglobals=true'
         },
         all: {
@@ -43,12 +42,6 @@ Type: `Array [string]`
 Default value: `null`
 
 An array that represents the locations of the pages to be inspected.
-
-#### options.includeJquery
-Type: `Boolean`
-Default value: `false`
-
-A boolean value indicating whether or not to inject jquery on to the page to be inspected. **Note:**  it is required by HTML Inspector so either you have to include JQuery on your page, or set this option to true.
 
 ### options.bridge
 Type: `String`
