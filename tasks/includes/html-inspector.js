@@ -1,10 +1,10 @@
 /*!
- * HTML Inspector - v0.2.3
+ * HTML Inspector - v0.3.0
  *
  * Copyright (c) 2013 Philip Walton <http://philipwalton.com>
  * Released under the MIT license
  *
- * Date: 2013-06-20
+ * Date: 2013-06-23
  */
 
 ;(function(root, document) {
@@ -17,7 +17,7 @@ var slice = Array.prototype.slice
  * Convert an array like object to an array
  */
 function toArray(arrayLike) {
-  return arrayLike && arrayLike.length
+  return arrayLike && (arrayLike.length)
     ? slice.call(arrayLike)
     : []
 }
@@ -86,11 +86,27 @@ function foundIn(needle, haystack) {
   // if haystack is a RegExp and not an array, just compare againt it
   if (isRegExp(haystack)) return haystack.test(needle)
 
+  // if haystack is a String, just compare against it
+  if (typeof haystack == "string") return needle == haystack
+
   // otherwise check each item in the list
   return haystack.some(function(item) {
     return isRegExp(item) ? item.test(needle) : needle === item
   })
 }
+
+/**
+ * Tests whether a fully-qualified URL is cross-origin
+ * Same origin URLs must have the same protocol, host, and port
+ */
+function isCrossOrigin(url) {
+  var reURL = /^(?:(https?:)\/\/)?((?:[0-9a-z\.\-]+)(?::(?:\d+))?)/
+    , matches = reURL.exec(url)
+    , protocol = matches[1]
+    , host = matches[2]
+  return !(protocol == location.protocol && host == location.host)
+}
+
 
 /**
  * Detects the browser's native matches() implementation
@@ -120,13 +136,17 @@ function matchesSelector(element, selector) {
  * Accepts a DOM element and an object to test against
  *
  * The test object can be a DOM element, a string selector, an array of
- * DOM elements, or an array of string selectors.
+ * DOM elements or string selectors.
  *
  * Returns true if the element matches any part of the test
  */
 function matches(element, test) {
+  // test can be null, but if it is, it never matches
+  if (test == null) {
+    return false
+  }
   // if test is a string or DOM element convert it to an array,
-  if (typeof test == "string" || test.nodeType) {
+  else if (typeof test == "string" || test.nodeType) {
     test = [test]
   }
   // if it has a length property call toArray in case it's array-like
@@ -252,7 +272,7 @@ var HTMLInspector = (function() {
     useRules.forEach(function(rule) {
       if (inspector.rules[rule]) {
         inspector.rules[rule].fn.call(
-          inspector.rules[rule].config,
+          inspector,
           listener,
           reporter,
           inspector.rules[rule].config
@@ -261,29 +281,31 @@ var HTMLInspector = (function() {
     })
   }
 
-  function traverseDOM(node, listener) {
+  function traverseDOM(node, listener, options) {
+
     // only deal with element nodes
     if (node.nodeType != 1) return
 
-    // ignore SVG elements and their descendants until the SVG spec is added
-    if (node.nodeName.toLowerCase() == "svg") return
-
-    // trigger events for this element
-    listener.trigger("element", node, [node.nodeName.toLowerCase(), node])
-    if (node.id) {
-      listener.trigger("id", node, [node.id, node])
+    // trigger events for this element unless it's been excluded
+    if (!matches(node, options.exclude)) {
+      listener.trigger("element", node, [node.nodeName.toLowerCase(), node])
+      if (node.id) {
+        listener.trigger("id", node, [node.id, node])
+      }
+      toArray(node.classList).forEach(function(name) {
+        listener.trigger("class", node, [name, node])
+      })
+      getAttributes(node).forEach(function(attr) {
+        listener.trigger("attribute", node, [attr.name, attr.value, node])
+      })
     }
-    toArray(node.classList).forEach(function(name) {
-      listener.trigger("class", node, [name, node])
-    })
-    getAttributes(node).forEach(function(attr) {
-      listener.trigger("attribute", node, [attr.name, attr.value, node])
-    })
 
-    // recurse through the tree
-    toArray(node.childNodes).forEach(function(node) {
-      traverseDOM(node, listener)
-    })
+    // recurse through the subtree unless it's been excluded
+    if (!matches(node, options.excludeSubTree)) {
+      toArray(node.childNodes).forEach(function(node) {
+        traverseDOM(node, listener, options)
+      })
+    }
   }
 
   function processConfig(config) {
@@ -301,14 +323,35 @@ var HTMLInspector = (function() {
     return extend({}, inspector.config, config)
   }
 
+  /**
+   * cross-origin iframe elements throw errors when being
+   * logged to the console.
+   * This function removes them from the context before
+   * logging them to the console.
+   */
+  function filterCrossOrigin(elements) {
+    // convert elements to an array if it's not already
+    if (!Array.isArray(elements)) elements = [elements]
+    elements = elements.map(function(el) {
+      if (el.nodeName.toLowerCase() == "iframe" && isCrossOrigin(el.src))
+        return "(can't display iframe with cross-origin source)"
+      else
+        return el
+    })
+    return elements.length === 1 ? elements[0] : elements
+  }
+
+
   var inspector = {
 
     config: {
       useRules: null,
       domRoot: "html",
+      exclude: "svg",
+      excludeSubTree: ["svg", "iframe"],
       onComplete: function(errors) {
         errors.forEach(function(error) {
-          console.warn(error.message, error.context)
+          console.warn(error.message, filterCrossOrigin(error.context))
         })
       }
     },
@@ -330,10 +373,24 @@ var HTMLInspector = (function() {
       setup(config.useRules, listener, reporter)
 
       listener.trigger("beforeInspect", domRoot)
-      traverseDOM(domRoot, listener)
+      traverseDOM(domRoot, listener, config)
       listener.trigger("afterInspect", domRoot)
 
       config.onComplete(reporter.getWarnings())
+    },
+
+    // expose the utility functions for use in rules
+    utils: {
+      toArray: toArray,
+      getAttributes: getAttributes,
+      isRegExp: isRegExp,
+      unique: unique,
+      extend: extend,
+      foundIn: foundIn,
+      isCrossOrigin: isCrossOrigin,
+      matchesSelector: matchesSelector,
+      matches: matches,
+      parents: parents
     },
 
     // expose for testing only
@@ -345,12 +402,9 @@ var HTMLInspector = (function() {
 
   }
 
-
-
   return inspector
 
 }())
-
 
 HTMLInspector.modules.add("css", (function() {
 
@@ -753,7 +807,7 @@ HTMLInspector.modules.add("validation", function() {
       attributes: "globals"
     },
     "select": {
-      children: "option, optgroup",
+      children: "option; optgroup",
       attributes: "globals; autofocus; disabled; form; multiple; name; required; size"
     },
     "small": {
@@ -866,20 +920,56 @@ HTMLInspector.modules.add("validation", function() {
   // ============================================================
 
   var elementCategories = {
-    "metadata": "base; link; meta; noscript; script; style; title",
-    "flow": "a; abbr; address; article; aside; audio; b; bdi; bdo; blockquote; br; button; canvas; cite; code; data; datalist; del; details; dfn; dialog; div; dl; em; embed; fieldset; figure; footer; form; h1; h2; h3; h4; h5; h6; header; hr; i; iframe; img; input; ins; kbd; keygen; label; main; map; mark; math; menu; meter; nav; noscript; object; ol; output; p; pre; progress; q; ruby; s; samp; script; section; select; small; span; strong; sub; sup; svg; table; textarea; time; u; ul; var; video; wbr; Text",
-    "sectioning": "article; aside; nav; section",
-    "heading": "h1; h2; h3; h4; h5; h6;",
-    "phrasing": "a; abbr; audio; b; bdi; bdo; br; button; canvas; cite; code; data; datalist; del; dfn; em; embed; i; iframe; img; input; ins; kbd; keygen; label; map; mark; math; meter; noscript; object; output; progress; q; ruby; s; samp; script; select; small; span; strong; sub; sup; svg; textarea; time; u; var; video; wbr; Text",
-    "embedded": "audio canvas embed iframe img math object svg video",
-    "interactive": "a; button; details; embed; iframe; keygen; label; select; textarea;",
-    "sectioning roots": "blockquote; body; details; dialog; fieldset; figure; td",
-    "form-associated": "button; fieldset; input; keygen; label; object; output; select; textarea",
-    "listed": "button; fieldset; input; keygen; object; output; select; textarea",
-    "submittable": "button; input; keygen; object; select; textarea",
-    "resettable": "input; keygen; output; select; textarea",
-    "labelable": "button; input; keygen; meter; output; progress; select; textarea",
-    "palpable": "a; abbr; address; article; aside; b; bdi; bdo; blockquote; button; canvas; cite; code; data; details; dfn; div; em; embed; fieldset; figure; footer; form; h1; h2; h3; h4; h5; h6; header; i; iframe; img; ins; kbd; keygen; label; map; mark; math; meter; nav; object; output; p; pre; progress; q; ruby; s; samp; section; select; small; span; strong; sub; sup; svg; table; textarea; time; u; var; video"
+    "metadata": {
+      elements: ["base", "link", "meta", "noscript", "script", "style", "title"]
+    },
+    "flow": {
+      elements: ["a", "abbr", "address", "article", "aside", "audio", "b", "bdi", "bdo", "blockquote", "br", "button", "canvas", "cite", "code", "data", "datalist", "del", "details", "dfn", "dialog", "div", "dl", "em", "embed", "fieldset", "figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "header", "hr", "i", "iframe", "img", "input", "ins", "kbd", "keygen", "label", "main", "map", "mark", "math", "menu", "meter", "nav", "noscript", "object", "ol", "output", "p", "pre", "progress", "q", "ruby", "s", "samp", "script", "section", "select", "small", "span", "strong", "sub", "sup", "svg", "table", "textarea", "time", "u", "ul", "var", "video", "wbr"],
+      exceptions: ["area", "link", "meta", "style"],
+      exceptionsSelectors: ["map area", "link[itemprop]", "meta[itemprop]", "style[scoped]"]
+    },
+    "sectioning": {
+      elements: ["article", "aside", "nav", "section"]
+    },
+    "heading": {
+      elements: ["h1", "h2", "h3", "h4", "h5", "h6"]
+    },
+    "phrasing": {
+      elements: ["a", "abbr", "audio", "b", "bdi", "bdo", "br", "button", "canvas", "cite", "code", "data", "datalist", "del", "dfn", "em", "embed", "i", "iframe", "img", "input", "ins", "kbd", "keygen", "label", "map", "mark", "math", "meter", "noscript", "object", "output", "progress", "q", "ruby", "s", "samp", "script", "select", "small", "span", "strong", "sub", "sup", "svg", "textarea", "time", "u", "var", "video", "wbr"],
+      exceptions: ["area", "link", "meta"],
+      exceptionsSelectors: ["map area", "link[itemprop]", "meta[itemprop]"]
+    },
+    "embedded": {
+      elements: ["audio", "canvas", "embed", "iframe", "img", "math", "object", "svg", "video"]
+    },
+    "interactive": {
+      elements: ["a", "button", "details", "embed", "iframe", "keygen", "label", "select", "textarea"],
+      exceptions: ["audio", "img", "input", "object", "video"],
+      exceptionsSelectors: ["audio[controls]", "img[usemap]", "input:not([type=hidden])", "object[usemap]", "video[controls]"]
+    },
+    "sectioning roots": {
+      elements: ["blockquote", "body", "details", "dialog", "fieldset", "figure", "td"]
+    },
+    "form-associated": {
+      elements: ["button", "fieldset", "input", "keygen", "label", "object", "output", "select", "textarea"]
+    },
+    "listed": {
+      elements: ["button", "fieldset", "input", "keygen", "object", "output", "select", "textarea"]
+    },
+    "submittable": {
+      elements: ["button", "input", "keygen", "object", "select", "textarea"]
+    },
+    "resettable": {
+      elements: ["input", "keygen", "output", "select", "textarea"]
+    },
+    "labelable": {
+      elements: ["button", "input", "keygen", "meter", "output", "progress", "select", "textarea"]
+    },
+    "palpable": {
+      elements: ["a", "abbr", "address", "article", "aside", "b", "bdi", "bdo", "blockquote", "button", "canvas", "cite", "code", "data", "details", "dfn", "div", "em", "embed", "fieldset", "figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "header", "i", "iframe", "img", "ins", "kbd", "keygen", "label", "map", "mark", "math", "meter", "nav", "object", "output", "p", "pre", "progress", "q", "ruby", "s", "samp", "section", "select", "small", "span", "strong", "sub", "sup", "svg", "table", "textarea", "time", "u", "var", "video"],
+      exceptions: ["audio", "dl", "input", "menu", "ol", "ul"],
+      exceptionsSelectors: ["audio[controls]", "dl", "input:not([type=hidden])", "menu[type=toolbar]", "ol", "ul"]
+    }
   }
 
   // ============================================================
@@ -1132,40 +1222,6 @@ HTMLInspector.modules.add("validation", function() {
       return []
   }
 
-  //
-  // WARNING: There are issues with this, do not use!
-  //
-  // function allowedChildrenGivenElementLocation(element) {
-  //   var children = elementData[elementName(element)]
-  //         .children
-  //         .replace(/\*/g, "")
-  //         .split(/\s*;\s*/)
-  //   return children.reduce(function(list, child) {
-  //     // for complicated cases, child may be a function that accepts
-  //     // and element and returns a list of acceptable children
-  //     if (typeof child === "function") {
-  //       return list.concat(child(element))
-  //     }
-  //     // elements with a content model of "transparent" essentially
-  //     // inherit the content model of their parent, so inspect that
-  //     else if (child === "transparent" && element.parentNode) {
-  //       return list.concat(allowedChildrenForElement(element.parentNode))
-  //     }
-  //     // if a category is returned, add all elements in that
-  //     // cateogry to the list
-  //     else if (elementCategories[child]) {
-  //       return list.concat(elementsForCategory(child))
-  //     }
-  //     // if just an element is returned, add it to the list
-  //     else if (isElementValid(child)) {
-  //       return list.concat([child])
-  //     }
-  //     // still here? just return the list
-  //     return list
-  //   }, [])
-  // }
-  //
-
   function elementsForCategory(category) {
     return elementCategories[category].split(/\s*;\s*/)
   }
@@ -1180,6 +1236,27 @@ HTMLInspector.modules.add("validation", function() {
 
   function isWhitelistedAttribute(attribute) {
     return foundIn(attribute, spec.attributeWhitelist)
+  }
+
+  function getAllowedChildElements(parent) {
+    var contents
+      , contentModel = []
+
+    // ignore children properties that contain an asterisk for now
+    contents = elementData[parent].children
+    contents = contents.indexOf("*") > -1 ? [] : contents.split(/\s*\;\s*/)
+
+    // replace content categories with their elements
+    contents.forEach(function(item) {
+      if (elementCategories[item]) {
+        contentModel = contentModel.concat(elementCategories[item].elements)
+        contentModel = contentModel.concat(elementCategories[item].exceptions || [])
+      } else {
+        contentModel.push(item)
+      }
+    })
+    // return a guaranteed match (to be safe) when there's no children
+    return contentModel.length ? contentModel : [/[\s\S]+/]
   }
 
   var spec = {
@@ -1241,16 +1318,15 @@ HTMLInspector.modules.add("validation", function() {
         return item.element == element
       })
       return (filtered[0] && filtered[0].attributes) || []
-    }
+    },
 
-    //
-    // WARNING: there are issues with this at the moment, do not use!
-    //
-    // isElementValidLocation: function(element) {
-    //   if (!element.parentNode) return true
-    //   var allowedChildren = allowedChildrenGivenElementLocation(element.parentNode)
-    //   return allowedChildren.indexOf(elementName(element)) >= 0
-    // }
+    isChildAllowedInParent: function(child, parent) {
+      // only check if both elements are valid elements
+      if (!elementData[child] || !elementData[parent])
+        return true
+      else
+        return foundIn(child, getAllowedChildElements(parent))
+    }
 
   }
 
@@ -1277,10 +1353,11 @@ HTMLInspector.rules.add(
   {
     whitelist: []
   },
-  function(listener, reporter) {
+  function(listener, reporter, config) {
 
     var elements = []
-      , whitelist = this.whitelist
+      , whitelist = config.whitelist
+      , matches = this.utils.matches
 
     function isWhitelisted(el) {
       if (!whitelist) return false
@@ -1359,6 +1436,7 @@ HTMLInspector.rules.add(
 
     var css = HTMLInspector.modules.css
       , classes = css.getClassSelectors()
+      , foundIn = this.utils.foundIn
 
     listener.on("class", function(name) {
       if (!foundIn(name, config.whitelist) && classes.indexOf(name) < 0) {
@@ -1453,6 +1531,10 @@ HTMLInspector.rules.add(
     "bem-conventions",
     config,
     function(listener, reporter, config) {
+
+      var parents = this.utils.parents
+        , matches = this.utils.matches
+
       listener.on('class', function(name) {
         if (config.isElement(name)) {
           // check the ancestors for the block class
@@ -1526,37 +1608,15 @@ HTMLInspector.rules.add("duplicate-ids", function(listener, reporter) {
 
 })
 
-HTMLInspector.rules.add("scoped-styles", function(listener, reporter) {
-
-  var elements = []
-
-  listener.on("element", function(name) {
-    var isOutsideHead
-      , isNotScoped
-    if (name == "style") {
-      isOutsideHead = !matches(document.querySelector("head"), parents(this))
-      isNotScoped = !this.hasAttribute("scoped")
-      if (isOutsideHead && isNotScoped) {
-        reporter.warn(
-          "scoped-styles",
-          "<style> elements outside of <head> must declare the 'scoped' attribute.",
-          this
-        )
-      }
-    }
-  })
-
-})
-
 HTMLInspector.rules.add(
   "unique-elements",
   {
     elements: ["title", "main"]
   },
-  function(listener, reporter) {
+  function(listener, reporter, config) {
 
     var map = {}
-      , elements = this.elements
+      , elements = config.elements
 
     // create the map where the keys are elements that must be unique
     elements.forEach(function(item) {
@@ -1621,6 +1681,74 @@ HTMLInspector.rules.add("validate-attributes", function(listener, reporter) {
         "validate-attributes",
         "'" + name + "' is not a valid attribute of the <"
         + element + "> element.",
+        this
+      )
+    }
+  })
+
+})
+
+HTMLInspector.rules.add("validate-element-location", function(listener, reporter) {
+
+  var validation = this.modules.validation
+    , matches = this.utils.matches
+    , parents = this.utils.parents
+    , warned = [] // store already-warned elements to prevent double warning
+
+
+  // =============================================================================
+  // Elements with clear-cut location rules are tested here.
+  // More complicated cases are tested below
+  // =============================================================================
+
+  listener.on("element", function(name) {
+    // skip elements without a DOM element for a parent
+    if (!(this.parentNode && this.parentNode.nodeType == 1)) return
+
+    var child = name
+      , parent = this.parentNode.nodeName.toLowerCase()
+
+    if (!validation.isChildAllowedInParent(child, parent)) {
+      warned.push(this)
+      reporter.warn(
+        "validate-element-location",
+        "The <" + child + "> element cannot be a child of the <" + parent + "> element.",
+        this
+      )
+    }
+  })
+
+  // ======================================================================== //
+  // Make sure <style> elements inside <body> have the 'scoped' attribute     //
+  // ======================================================================== //
+
+  listener.on("element", function(name) {
+    // don't double warn if the style elements already has a location warning
+    if (warned.indexOf(this) > -1) return
+
+    if (matches(this, "body style:not([scoped])")) {
+      reporter.warn(
+        "validate-element-location",
+        "<style> elements inside <body> must contain the 'scoped' attribute.",
+        this
+      )
+    }
+  })
+
+  // ======================================================================== //
+  // Make sure <meta> and <link> elements inside <body> have the 'itemprop'   //
+  // attribute                                                                //
+  // ======================================================================== //
+
+  listener.on("element", function(name) {
+    // don't double warn if the style elements already has a location warning
+    if (warned.indexOf(this) > -1) return
+
+    if (matches(this, "body meta:not([itemprop]), body link:not([itemprop])")) {
+      reporter.warn(
+        "validate-element-location",
+        "<" + name + "> elements inside <body> must contain the"
+        + " 'itemprop' attribute.",
         this
       )
     }

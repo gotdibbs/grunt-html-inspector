@@ -66,3 +66,10 @@ In lieu of a formal styleguide, take care to maintain the existing coding style.
 
 ## License
 This library is licensed under the MIT License. Portions of this code were taken and/or inspired by the [grunt-contrib-qunit](https://github.com/gruntjs/grunt-contrib-qunit) and the [grunt-qunit-serverless](https://github.com/jgable/grunt-qunit-serverless) tasks.
+
+## Release History
+
+- **v0.1.3** - 6/24/2013 - Updated HTML Inspector to v0.3.0.
+- **v0.1.2** - 6/20/2013 - Updated to remove jQuery dependency.
+- **v0.1.1** - 6/17/2013 - Updated to be a true grunt multi-task.
+- **v0.1.0** - 6/16/2013 - Initial release.
