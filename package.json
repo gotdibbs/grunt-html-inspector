@@ -1,7 +1,7 @@
 {
   "name": "grunt-html-inspector",
   "description": "Automated HTML Inspection with Grunt.",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "homepage": "https://github.com/gotdibbs/grunt-html-inspector",
   "author": {
     "name": "William H. Dibbern III",
