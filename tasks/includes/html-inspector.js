@@ -1,14 +1,13 @@
 /*!
- * HTML Inspector - v0.5.1
+ * HTML Inspector - v0.8.1
  *
- * Copyright (c) 2013 Philip Walton <http://philipwalton.com>
+ * Copyright (c) 2014 Philip Walton <http://philipwalton.com>
  * Released under the MIT license
  *
- * Date: 2013-08-31
+ * Date: 2014-05-30
  */
 
-(function(e){if("function"==typeof bootstrap)bootstrap("htmlinspector",e);else if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else if("undefined"!=typeof ses){if(!ses.ok())return;ses.makeHTMLInspector=e}else"undefined"!=typeof window?window.HTMLInspector=e():global.HTMLInspector=e()})(function(){var define,ses,bootstrap,module,exports;
-return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 /**
  * Get an object representation of an element's attributes
  */
@@ -91,7 +90,7 @@ function matches(element, test) {
 module.exports = matches
 
 
-},{"mout/lang/toArray":14}],3:[function(require,module,exports){
+},{"mout/lang/toArray":13}],3:[function(require,module,exports){
 /**
  * Returns an array of the element's parent elements
  */
@@ -107,7 +106,6 @@ function parents(element) {
 module.exports = parents
 
 },{}],4:[function(require,module,exports){
-var forEach = require('./forEach');
 var makeIterator = require('../function/makeIterator_');
 
     /**
@@ -135,81 +133,49 @@ var makeIterator = require('../function/makeIterator_');
 
 
 
-},{"../function/makeIterator_":8,"./forEach":5}],5:[function(require,module,exports){
-
-
-    /**
-     * Array forEach
-     */
-    function forEach(arr, callback, thisObj) {
-        if (arr == null) {
-            return;
-        }
-        var i = -1,
-            len = arr.length;
-        while (++i < len) {
-            // we iterate over sparse items since there is no way to make it
-            // work properly on IE 7-8. see #64
-            if ( callback.call(thisObj, arr[i], i, arr) === false ) {
-                break;
-            }
-        }
-    }
-
-    module.exports = forEach;
-
-
-
-},{}],6:[function(require,module,exports){
-
-
-    /**
-     * Array.indexOf
-     */
-    function indexOf(arr, item, fromIndex) {
-        fromIndex = fromIndex || 0;
-        if (arr == null) {
-            return -1;
-        }
-
-        var len = arr.length,
-            i = fromIndex < 0 ? len + fromIndex : fromIndex;
-        while (i < len) {
-            // we iterate over sparse items since there is no way to make it
-            // work properly on IE 7-8. see #64
-            if (arr[i] === item) {
-                return i;
-            }
-
-            i++;
-        }
-
-        return -1;
-    }
-
-    module.exports = indexOf;
-
-
-},{}],7:[function(require,module,exports){
-var indexOf = require('./indexOf');
+},{"../function/makeIterator_":7}],5:[function(require,module,exports){
 var filter = require('./filter');
 
     /**
      * @return {array} Array of unique items
      */
-    function unique(arr){
-        return filter(arr, isUnique);
+    function unique(arr, compare){
+        compare = compare || isEqual;
+        return filter(arr, function(item, i, arr){
+            var n = arr.length;
+            while (++i < n) {
+                if ( compare(item, arr[i]) ) {
+                    return false;
+                }
+            }
+            return true;
+        });
     }
 
-    function isUnique(item, i, arr){
-        return indexOf(arr, item, i+1) === -1;
+    function isEqual(a, b){
+        return a === b;
     }
 
     module.exports = unique;
 
 
 
-},{"./filter":4,"./indexOf":6}],8:[function(require,module,exports){
+},{"./filter":4}],6:[function(require,module,exports){
+
+
+    /**
+     * Returns the first argument provided to it.
+     */
+    function identity(val){
+        return val;
+    }
+
+    module.exports = identity;
+
+
+
+},{}],7:[function(require,module,exports){
+var identity = require('./identity');
 var prop = require('./prop');
 var deepMatches = require('../object/deepMatches');
 
@@ -219,25 +185,24 @@ var deepMatches = require('../object/deepMatches');
      * callback/iterator providing a shortcut syntax.
      */
     function makeIterator(src, thisObj){
+        if (src == null) {
+            return identity;
+        }
         switch(typeof src) {
-            case 'object':
-                // typeof null == "object"
-                return (src != null)? function(val, key, target){
-                    return deepMatches(val, src);
+            case 'function':
+                // function is the first to improve perf (most common case)
+                // also avoid using `Function#call` if not needed, which boosts
+                // perf a lot in some cases
+                return (typeof thisObj !== 'undefined')? function(val, i, arr){
+                    return src.call(thisObj, val, i, arr);
                 } : src;
+            case 'object':
+                return function(val){
+                    return deepMatches(val, src);
+                };
             case 'string':
             case 'number':
                 return prop(src);
-            case 'function':
-                if (typeof thisObj === 'undefined') {
-                    return src;
-                } else {
-                    return function(val, i, arr){
-                        return src.call(thisObj, val, i, arr);
-                    };
-                }
-            default:
-                return src;
         }
     }
 
@@ -245,7 +210,7 @@ var deepMatches = require('../object/deepMatches');
 
 
 
-},{"../object/deepMatches":15,"./prop":9}],9:[function(require,module,exports){
+},{"../object/deepMatches":14,"./identity":6,"./prop":8}],8:[function(require,module,exports){
 
 
     /**
@@ -261,7 +226,7 @@ var deepMatches = require('../object/deepMatches');
 
 
 
-},{}],10:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 var isKind = require('./isKind');
     /**
      */
@@ -271,7 +236,7 @@ var isKind = require('./isKind');
     module.exports = isArray;
 
 
-},{"./isKind":11}],11:[function(require,module,exports){
+},{"./isKind":10}],10:[function(require,module,exports){
 var kindOf = require('./kindOf');
     /**
      * Check if value is from a specific "kind".
@@ -282,7 +247,7 @@ var kindOf = require('./kindOf');
     module.exports = isKind;
 
 
-},{"./kindOf":13}],12:[function(require,module,exports){
+},{"./kindOf":12}],11:[function(require,module,exports){
 var isKind = require('./isKind');
     /**
      */
@@ -292,7 +257,7 @@ var isKind = require('./isKind');
     module.exports = isRegExp;
 
 
-},{"./isKind":11}],13:[function(require,module,exports){
+},{"./isKind":10}],12:[function(require,module,exports){
 
 
     var _rKind = /^\[object (.*)\]$/,
@@ -314,7 +279,7 @@ var isKind = require('./isKind');
     module.exports = kindOf;
 
 
-},{}],14:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 var kindOf = require('./kindOf');
 
     var _win = this;
@@ -347,7 +312,7 @@ var kindOf = require('./kindOf');
     module.exports = toArray;
 
 
-},{"./kindOf":13}],15:[function(require,module,exports){
+},{"./kindOf":12}],14:[function(require,module,exports){
 var forOwn = require('./forOwn');
 var isArray = require('../lang/isArray');
 
@@ -404,7 +369,7 @@ var isArray = require('../lang/isArray');
 
 
 
-},{"../lang/isArray":10,"./forOwn":17}],16:[function(require,module,exports){
+},{"../lang/isArray":9,"./forOwn":16}],15:[function(require,module,exports){
 
 
     var _hasDontEnumBug,
@@ -468,7 +433,7 @@ var isArray = require('../lang/isArray');
 
 
 
-},{}],17:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 var hasOwn = require('./hasOwn');
 var forIn = require('./forIn');
 
@@ -489,7 +454,7 @@ var forIn = require('./forIn');
 
 
 
-},{"./forIn":16,"./hasOwn":18}],18:[function(require,module,exports){
+},{"./forIn":15,"./hasOwn":17}],17:[function(require,module,exports){
 
 
     /**
@@ -503,7 +468,7 @@ var forIn = require('./forIn');
 
 
 
-},{}],19:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 var forOwn = require('./forOwn');
 
     /**
@@ -533,7 +498,7 @@ var forOwn = require('./forOwn');
     module.exports = mixIn;
 
 
-},{"./forOwn":17}],20:[function(require,module,exports){
+},{"./forOwn":16}],19:[function(require,module,exports){
 function Callbacks() {
   this.handlers = []
 }
@@ -556,7 +521,7 @@ Callbacks.prototype.fire = function(context, args) {
 
 module.exports = Callbacks
 
-},{}],21:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 var Listener = require("./listener")
   , Modules = require("./modules")
   , Reporter = require("./reporter")
@@ -570,8 +535,7 @@ var Listener = require("./listener")
   , matches = require("dom-utils/src/matches")
   , getAttributes = require("dom-utils/src/get-attributes")
 
-  // used to parse URLs
-  , link = document.createElement("a")
+  , isCrossOrigin = require("./utils/cross-origin")
 
 /**
  * Set (or reset) all data back to its original value
@@ -651,16 +615,6 @@ function mergeOptions(options) {
 }
 
 /**
- * Tests whether a URL is cross-origin
- * Same origin URLs must have the same protocol and host
- * (note: host include hostname and port)
- */
-function isCrossOrigin(url) {
-  link.href = url
-  return !(link.protocol == location.protocol && link.host == location.host)
-}
-
-/**
  * cross-origin iframe elements throw errors when being
  * logged to the console.
  * This function removes them from the context before
@@ -731,9 +685,9 @@ HTMLInspector.rules.add( require("./rules/validation/validate-attributes.js") )
 HTMLInspector.rules.add( require("./rules/validation/validate-element-location.js") )
 HTMLInspector.rules.add( require("./rules/validation/validate-elements.js") )
 
-module.exports = HTMLInspector
+window.HTMLInspector = HTMLInspector
 
-},{"./listener":22,"./modules":23,"./modules/css.js":24,"./modules/validation.js":25,"./reporter":26,"./rules":27,"./rules/best-practices/inline-event-handlers.js":28,"./rules/best-practices/script-placement.js":29,"./rules/best-practices/unnecessary-elements.js":30,"./rules/best-practices/unused-classes.js":31,"./rules/convention/bem-conventions.js":32,"./rules/validation/duplicate-ids.js":33,"./rules/validation/unique-elements.js":34,"./rules/validation/validate-attributes.js":35,"./rules/validation/validate-element-location.js":36,"./rules/validation/validate-elements.js":37,"dom-utils/src/get-attributes":1,"dom-utils/src/matches":2,"mout/array/unique":7,"mout/lang/isRegExp":12,"mout/lang/toArray":14,"mout/object/mixIn":19}],22:[function(require,module,exports){
+},{"./listener":21,"./modules":22,"./modules/css.js":23,"./modules/validation.js":24,"./reporter":25,"./rules":26,"./rules/best-practices/inline-event-handlers.js":27,"./rules/best-practices/script-placement.js":28,"./rules/best-practices/unnecessary-elements.js":29,"./rules/best-practices/unused-classes.js":30,"./rules/convention/bem-conventions.js":31,"./rules/validation/duplicate-ids.js":32,"./rules/validation/unique-elements.js":33,"./rules/validation/validate-attributes.js":34,"./rules/validation/validate-element-location.js":35,"./rules/validation/validate-elements.js":36,"./utils/cross-origin":37,"dom-utils/src/get-attributes":1,"dom-utils/src/matches":2,"mout/array/unique":5,"mout/lang/isRegExp":11,"mout/lang/toArray":13,"mout/object/mixIn":18}],21:[function(require,module,exports){
 var Callbacks = require("./callbacks")
 
 function Listener() {
@@ -754,7 +708,7 @@ Listener.prototype.trigger = function(event, context, args) {
 }
 
 module.exports = Listener
-},{"./callbacks":20}],23:[function(require,module,exports){
+},{"./callbacks":19}],22:[function(require,module,exports){
 var mixIn = require("mout/object/mixIn")
 
 function Modules() {}
@@ -770,11 +724,12 @@ Modules.prototype.extend = function(name, options) {
 }
 
 module.exports = Modules
-},{"mout/object/mixIn":19}],24:[function(require,module,exports){
+},{"mout/object/mixIn":18}],23:[function(require,module,exports){
 var reClassSelector = /\.[a-z0-9_\-]+/ig
   , toArray = require("mout/lang/toArray")
   , unique = require("mout/array/unique")
   , matches = require("dom-utils/src/matches")
+  , isCrossOrigin = require("../utils/cross-origin")
 
 /**
  * Get an array of class selectors from a CSSRuleList object
@@ -801,7 +756,10 @@ function getClassesFromRuleList(rulelist) {
  */
 function getClassesFromStyleSheets(styleSheets) {
   return styleSheets.reduce(function(classes, sheet) {
-    return classes.concat(getClassesFromRuleList(toArray(sheet.cssRules)))
+    // cross origin stylesheets don't expose their cssRules property
+    return sheet.href && isCrossOrigin(sheet.href)
+      ? classes
+      : classes.concat(getClassesFromRuleList(toArray(sheet.cssRules)))
   }, [])
 }
 
@@ -826,7 +784,7 @@ module.exports = {
   module: css
 }
 
-},{"dom-utils/src/matches":2,"mout/array/unique":7,"mout/lang/toArray":14}],25:[function(require,module,exports){
+},{"../utils/cross-origin":37,"dom-utils/src/matches":2,"mout/array/unique":5,"mout/lang/toArray":13}],24:[function(require,module,exports){
 var foundIn = require("../utils/string-matcher")
 
 // ============================================================
@@ -1601,21 +1559,13 @@ function isGlobalAttribute(attribute) {
   return foundIn(attribute, globalAttributes)
 }
 
-function isWhitelistedElement(element) {
-  return foundIn(element, spec.elementWhitelist)
-}
-
-function isWhitelistedAttribute(attribute) {
-  return foundIn(attribute, spec.attributeWhitelist)
-}
-
 function getAllowedChildElements(parent) {
   var contents
     , contentModel = []
 
   // ignore children properties that contain an asterisk for now
   contents = elementData[parent].children
-  contents = contents.indexOf("*") > -1 ? [] : contents.split(/\s*\;\s*/)
+  contents = contents.indexOf("*") >= 0 ? [] : contents.split(/\s*\;\s*/)
 
   // replace content categories with their elements
   contents.forEach(function(item) {
@@ -1632,31 +1582,17 @@ function getAllowedChildElements(parent) {
 
 var spec = {
 
-  // This allows AngularJS's ng-* attributes to be allowed,
-  // customize to fit your needs
-  attributeWhitelist: [
-    /ng\-[a-z\-]+/
-  ],
-
-  // Include any custom element you're using and want to allow
-  elementWhitelist: [],
-
   isElementValid: function(element) {
-    return isWhitelistedElement(element)
-      ? true
-      : elements.indexOf(element) >= 0
+    return elements.indexOf(element) >= 0
   },
 
   isElementObsolete: function(element) {
-    return isWhitelistedElement(element)
-      ? false
-      : obsoluteElements.indexOf(element) >= 0
+    return obsoluteElements.indexOf(element) >= 0
   },
 
   isAttributeValidForElement: function(attribute, element) {
-    if (isGlobalAttribute(attribute) || isWhitelistedAttribute(attribute)) {
-      return true
-    }
+    if (isGlobalAttribute(attribute)) return true
+
     // some elements (like embed) accept any attribute
     // http://drafts.htmlwg.org/html/master/embedded-content-0.html#the-embed-element
     if (allowedAttributesForElement(element).indexOf("any") >= 0) return true
@@ -1664,9 +1600,6 @@ var spec = {
   },
 
   isAttributeObsoleteForElement: function(attribute, element) {
-    // attributes in the whitelist are never considered obsolete
-    if (isWhitelistedAttribute(attribute)) return false
-
     return obsoleteAttributes.some(function(item) {
       if (item.attribute !== attribute) return false
       return item.elements.split(/\s*;\s*/).some(function(name) {
@@ -1676,9 +1609,6 @@ var spec = {
   },
 
   isAttributeRequiredForElement: function(attribute, element) {
-    // attributes in the whitelist are never considered required
-    if (isWhitelistedAttribute(attribute)) return false
-
     return requiredAttributes.some(function(item) {
       return element == item.element && item.attributes.indexOf(attribute) >= 0
     })
@@ -1706,7 +1636,7 @@ module.exports = {
   module: spec
 }
 
-},{"../utils/string-matcher":38}],26:[function(require,module,exports){
+},{"../utils/string-matcher":38}],25:[function(require,module,exports){
 function Reporter() {
   this._errors = []
 }
@@ -1724,7 +1654,7 @@ Reporter.prototype.getWarnings = function() {
 }
 
 module.exports = Reporter
-},{}],27:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 var mixIn = require("mout/object/mixIn")
 
 function Rules() {}
@@ -1758,14 +1688,20 @@ Rules.prototype.extend = function(name, options) {
 
 module.exports = Rules
 
-},{"mout/object/mixIn":19}],28:[function(require,module,exports){
+},{"mout/object/mixIn":18}],27:[function(require,module,exports){
+var foundIn = require("../../utils/string-matcher")
+
 module.exports = {
 
   name: "inline-event-handlers",
 
-  func: function(listener, reporter) {
+  config: {
+    whitelist: []
+  },
+
+  func: function(listener, reporter, config) {
     listener.on('attribute', function(name, value) {
-      if (name.indexOf("on") === 0) {
+      if (name.indexOf("on") === 0 && !foundIn(name, config.whitelist)) {
         reporter.warn(
           "inline-event-handlers",
           "An '" + name + "' attribute was found in the HTML. Use external scripts for event binding instead.",
@@ -1776,7 +1712,7 @@ module.exports = {
   }
 }
 
-},{}],29:[function(require,module,exports){
+},{"../../utils/string-matcher":38}],28:[function(require,module,exports){
 module.exports = {
 
   name: "script-placement",
@@ -1830,7 +1766,7 @@ module.exports = {
     })
   }
 }
-},{"dom-utils/src/matches":2}],30:[function(require,module,exports){
+},{"dom-utils/src/matches":2}],29:[function(require,module,exports){
 module.exports = {
 
   name: "unnecessary-elements",
@@ -1857,7 +1793,7 @@ module.exports = {
   }
 }
 
-},{}],31:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 module.exports = {
 
   name: "unused-classes",
@@ -1890,13 +1826,13 @@ module.exports = {
   }
 }
 
-},{"../../utils/string-matcher":38}],32:[function(require,module,exports){
+},{"../../utils/string-matcher":38}],31:[function(require,module,exports){
 // ============================================================
 // There are several different BEM  naming conventions that
 // I'm aware of. To make things easier, I refer to the
 // methodologies by the name of projects that utilize them.
 //
-// suit: https://github.com/necolas/suit
+// suit: http://suitcss.github.io/
 // -------------------------------------
 // BlockName
 // BlockName--modifierName
@@ -2006,17 +1942,26 @@ module.exports = {
   }
 }
 
-},{"dom-utils/src/matches":2,"dom-utils/src/parents":3}],33:[function(require,module,exports){
+},{"dom-utils/src/matches":2,"dom-utils/src/parents":3}],32:[function(require,module,exports){
+var foundIn = require("../../utils/string-matcher")
+
 module.exports = {
 
   name: "duplicate-ids",
 
-  func: function(listener, reporter) {
+  config: {
+    whitelist: []
+  },
+
+  func: function(listener, reporter, config) {
 
     var elements = []
 
     listener.on("id", function(name) {
-      elements.push({id: name, context: this})
+      // ignore whitelisted attributes
+      if (!foundIn(name, config.whitelist)) {
+        elements.push({id: name, context: this})
+      }
     })
 
     listener.on("afterInspect", function() {
@@ -2050,7 +1995,7 @@ module.exports = {
   }
 }
 
-},{}],34:[function(require,module,exports){
+},{"../../utils/string-matcher":38}],33:[function(require,module,exports){
 module.exports = {
 
   name: "unique-elements",
@@ -2090,18 +2035,30 @@ module.exports = {
   }
 }
 
-},{}],35:[function(require,module,exports){
+},{}],34:[function(require,module,exports){
+var foundIn = require("../../utils/string-matcher")
+
 module.exports = {
 
   name: "validate-attributes",
 
-  func: function(listener, reporter) {
+  config: {
+    whitelist: [
+      /ng\-[a-z\-]+/ // AngularJS
+    ]
+  },
+
+  func: function(listener, reporter, config) {
 
     var validation = this.modules.validation
 
     listener.on("element", function(name) {
       var required = validation.getRequiredAttributesForElement(name)
+
       required.forEach(function(attr) {
+        // ignore whitelisted attributes
+        if (foundIn(attr, config.whitelist)) return
+
         if (!this.hasAttribute(attr)) {
           reporter.warn(
             "validate-attributes",
@@ -2118,6 +2075,9 @@ module.exports = {
 
       // don't validate the attributes of invalid elements
       if (!validation.isElementValid(element)) return
+
+      // ignore whitelisted attributes
+      if (foundIn(name, config.whitelist)) return
 
       if (validation.isAttributeObsoleteForElement(name, element)) {
         reporter.warn(
@@ -2139,12 +2099,16 @@ module.exports = {
   }
 }
 
-},{}],36:[function(require,module,exports){
+},{"../../utils/string-matcher":38}],35:[function(require,module,exports){
 module.exports = {
 
   name: "validate-element-location",
 
-  func: function(listener, reporter) {
+  config: {
+    whitelist: []
+  },
+
+  func: function(listener, reporter, config) {
 
     var validation = this.modules.validation
       , matches = require("dom-utils/src/matches")
@@ -2157,10 +2121,7 @@ module.exports = {
     // More complicated cases are tested below
     // ===========================================================================
 
-    listener.on("element", function(name) {
-      // skip elements without a DOM element for a parent
-      if (!(this.parentNode && this.parentNode.nodeType == 1)) return
-
+    function testGeneralElementLocation(name) {
       var child = name
         , parent = this.parentNode.nodeName.toLowerCase()
 
@@ -2172,17 +2133,14 @@ module.exports = {
           this
         )
       }
-    })
+    }
 
     // ===========================================================================
     // Make sure <style> elements inside <body> have the 'scoped' attribute.
     // They must also be the first element child of their parent.
     // ===========================================================================
 
-    listener.on("element", function(name) {
-      // don't double warn if the style elements already has a location warning
-      if (warned.indexOf(this) > -1) return
-
+    function testUnscopedStyles(name) {
       if (matches(this, "body style:not([scoped])")) {
         reporter.warn(
           "validate-element-location",
@@ -2197,18 +2155,14 @@ module.exports = {
           this
         )
       }
-
-    })
+    }
 
     // ===========================================================================
     // Make sure <meta> and <link> elements inside <body> have the 'itemprop'
     // attribute
     // ===========================================================================
 
-    listener.on("element", function(name) {
-      // don't double warn if the style elements already has a location warning
-      if (warned.indexOf(this) > -1) return
-
+    function testItemProp(name) {
       if (matches(this, "body meta:not([itemprop]), body link:not([itemprop])")) {
         reporter.warn(
           "validate-element-location",
@@ -2217,20 +2171,48 @@ module.exports = {
           this
         )
       }
+    }
+
+
+    listener.on("element", function(name) {
+
+      // ignore whitelisted elements
+      if (matches(this, config.whitelist)) return
+
+      // skip elements without a DOM element for a parent
+      if (!(this.parentNode && this.parentNode.nodeType == 1)) return
+
+      // don't double warn if the elements already has a location warning
+      if (warned.indexOf(this) > -1) return
+
+      testGeneralElementLocation.call(this, name)
+      testUnscopedStyles.call(this, name)
+      testItemProp.call(this, name)
     })
+
   }
 }
 
-},{"dom-utils/src/matches":2,"dom-utils/src/parents":3}],37:[function(require,module,exports){
+},{"dom-utils/src/matches":2,"dom-utils/src/parents":3}],36:[function(require,module,exports){
+var foundIn = require("../../utils/string-matcher")
+
 module.exports = {
 
   name: "validate-elements",
 
-  func: function(listener, reporter) {
+  config: {
+    whitelist: []
+  },
+
+  func: function(listener, reporter, config) {
 
     var validation = this.modules.validation
 
     listener.on("element", function(name) {
+
+      // ignore whitelisted elements
+      if (foundIn(name, config.whitelist)) return
+
       if (validation.isElementObsolete(name)) {
         reporter.warn(
           "validate-elements",
@@ -2247,6 +2229,20 @@ module.exports = {
       }
     })
   }
+}
+
+},{"../../utils/string-matcher":38}],37:[function(require,module,exports){
+// used to parse URLs
+var link = document.createElement("a")
+
+/**
+ * Tests whether a URL is cross-origin
+ * Same origin URLs must have the same protocol and host
+ * (note: host include hostname and port)
+ */
+module.exports = function(url) {
+  link.href = url
+  return !(link.protocol == location.protocol && link.host == location.host)
 }
 
 },{}],38:[function(require,module,exports){
@@ -2271,6 +2267,4 @@ function foundIn(needle, haystack) {
 
 module.exports = foundIn
 
-},{"mout/lang/isRegExp":12}]},{},[21])(21)
-});
-;
+},{"mout/lang/isRegExp":11}]},{},[20])

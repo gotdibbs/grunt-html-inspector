@@ -69,8 +69,9 @@ This library is licensed under the MIT License. Portions of this code were taken
 
 ## Release History
 
-- **v0.1.4** - 10/2/2013 - Updated HTML Inspector to v0.5.1.
-- **v0.1.3** - 6/24/2013 - Updated HTML Inspector to v0.3.0.
-- **v0.1.2** - 6/20/2013 - Updated to remove jQuery dependency.
-- **v0.1.1** - 6/17/2013 - Updated to be a true grunt multi-task.
-- **v0.1.0** - 6/16/2013 - Initial release.
+- **v0.1.5** - 06/02/2014 - Updated HTML Inspector to v0.8.1.
+- **v0.1.4** - 10/02/2013 - Updated HTML Inspector to v0.5.1.
+- **v0.1.3** - 06/24/2013 - Updated HTML Inspector to v0.3.0.
+- **v0.1.2** - 06/20/2013 - Updated to remove jQuery dependency.
+- **v0.1.1** - 06/17/2013 - Updated to be a true grunt multi-task.
+- **v0.1.0** - 06/16/2013 - Initial release.
