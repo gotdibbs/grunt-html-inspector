@@ -1,22 +1,33 @@
 exports.nodeunit = (function (){
     'use strict';
-    
+
     var grunt = require('grunt'),
         _ = grunt.util._,
         HtmlInspector = require('../tasks/lib/HtmlInspector');
 
     function _getMockTask(filesSrc, opts) {
-        if (!opts) { 
-            opts = {}; 
-        }
-    
-        return {
-            filesSrc: filesSrc,
-            options: function options(config){ 
+
+        function MockTask() {
+            var self = this;
+
+            if (!opts) {
+                opts = {};
+            }
+
+            self.calledAsyncDone = [];
+
+            self.filesSrc = filesSrc,
+            self.options = function options(config){
                 return _.defaults(opts, config);
             },
-            async: function noop() { }
-        };
+            self.async = function getAsyncDone() {
+                return function asyncDone(err) {
+                    self.calledAsyncDone.push(err);
+                };
+            }
+        }
+
+        return new MockTask();
     }
 
     function _getMockGrunt() {
@@ -42,21 +53,21 @@ exports.nodeunit = (function (){
                     options.done();
                 }
             },
-            on: function on(handler) { 
+            on: function on(handler) {
                 this.handlers.push(handler)
             }
         };
     }
-    
+
     function exists(test) {
         test.expect(1);
         test.ok(HtmlInspector, 'Should exist.');
         test.done();
     }
-    
+
     function setsDefaults(test) {
         var task = new HtmlInspector(_getMockTask());
-        
+
         test.expect(5);
         test.ok(task, 'Task should exist.');
         test.ok(task.options, 'Options should exist.');
@@ -65,10 +76,10 @@ exports.nodeunit = (function (){
         test.strictEqual(task.options.parameters, null, 'Page parameters should be null.');
         test.done();
     }
-    
+
     function registersSelfWithGrunt(test) {
         var mockGrunt = _getMockGrunt();
-    
+
         test.expect(3);
         test.ok(HtmlInspector.registerWithGrunt, 'Registration function should exist.');
         HtmlInspector.registerWithGrunt(mockGrunt);
@@ -82,7 +93,7 @@ exports.nodeunit = (function (){
             mockPhantom = _getMockPhantom();
 
         task = new HtmlInspector(
-            _getMockTask(['test/test.html'], { }), 
+            _getMockTask(['test/test.html'], { }),
             mockPhantom);
 
         test.expect(2);
@@ -123,13 +134,30 @@ exports.nodeunit = (function (){
         test.strictEqual(mockPhantom.calledUrls[1], 'test/test2.html', 'Called URL #2 should be test2.html.');
         test.done();
     }
-    
+
+    function callsAsyncDoneOnAllFilesTested(test) {
+        var task,
+            mockPhantom = _getMockPhantom(),
+            mockTask = _getMockTask(['test/test.html', 'test/test2.html'], { });
+
+        task = new HtmlInspector(
+            mockTask,
+            mockPhantom);
+
+        test.expect(2);
+        task.run();
+        test.strictEqual(mockTask.calledAsyncDone.length, 1, 'Grunt async done should be called exactly once.');
+        test.strictEqual(mockTask.calledAsyncDone[0], undefined, 'Grunt async done should be called with error equal to undefined to signal success.');
+        test.done();
+    }
+
     return {
         exists: exists,
         setsDefaults: setsDefaults,
         registersSelfWithGrunt: registersSelfWithGrunt,
         runRegistersPhantomHandlers: runRegistersPhantomHandlers,
         runSetsDefaults: runSetsDefaults,
-        runsMultipleFiles: runsMultipleFiles
+        runsMultipleFiles: runsMultipleFiles,
+        callsAsyncDoneOnAllFilesTested: callsAsyncDoneOnAllFilesTested
     };
 }());
