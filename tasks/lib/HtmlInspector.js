@@ -60,7 +60,7 @@ _.extend(HtmlInspector.prototype, (function () {
         var self = this,
             options = self.options,
             phantomjs = self.phantomjs,
-            markTaskComplete = this.async(),
+            markTaskComplete = self.async(),
             inject = [];
 
         if (!self.filesSrc) {
@@ -106,6 +106,13 @@ _.extend(HtmlInspector.prototype, (function () {
                 };
             
             }()));
+        }, function allFilesTested(er) {
+            if (er) {
+                markTaskComplete(false);
+            }
+            else {
+                markTaskComplete();
+            }
         });
     }
 
