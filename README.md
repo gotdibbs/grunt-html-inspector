@@ -69,6 +69,7 @@ This library is licensed under the MIT License. Portions of this code were taken
 
 ## Release History
 
+- **v0.1.6** - 06/18/2014 - Corrected issue with grunt async.
 - **v0.1.5** - 06/02/2014 - Updated HTML Inspector to v0.8.1.
 - **v0.1.4** - 10/02/2013 - Updated HTML Inspector to v0.5.1.
 - **v0.1.3** - 06/24/2013 - Updated HTML Inspector to v0.3.0.
