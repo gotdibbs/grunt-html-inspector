@@ -1,3 +1,5 @@
+:no_entry: [NOT MAINTAINED] I no longer have use for this plugin and so my time and efforts have been refocused elsewhere. I'd be happy to transition this repo to someone else if desired, or accept pull requests as needed. Otherwise, this repo will be left active for historical purposes.
+
 # grunt-html-inspector
 
 > Phantomjs-based HTML Inspector implementation in Grunt. Runs [HTML Inspector](https://github.com/philipwalton/html-inspector) by @philipwalton against an HTML page.
